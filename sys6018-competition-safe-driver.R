@@ -50,11 +50,20 @@ summary(fit)
 anova(fit)
 
 # stepwise model selection 
-start<-glm(target ~1,data= train_sample)
-end<-glm(target~.,data= train_sample)
+start<-glm(target ~1,family=binomial(link='logit'),data= train_sample)
+end<-glm(target~.,family=binomial(link='logit'),data= train_sample)
 result.s<-step(start, scope=list(upper=end), direction="both",trace=FALSE) 
 summary(result.s)
 anova(result.s)
+
+predict(result.s, newdata = train_sample.test, type = 'response')
+
+#k-fold cross validation for logistic regression 
+#https://www.r-bloggers.com/predicting-creditability-using-logistic-regression-in-r-cross-validating-the-classifier-part-2-2/
+library(boot)
+cost <- function(r, pi = 0) mean(abs(r-pi) > 0.5)
+cv.glm(train_sample,result.s,K=5,cost=cost)$delta[1]
+# 0.03633333
 
 
 # ----------Random Forest-----------# 
