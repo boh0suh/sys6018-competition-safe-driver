@@ -1,6 +1,6 @@
 
-train = read.csv("train.csv")
-test = read.csv('test.csv')
+train = read.csv("C:\\Users\\mkw5c\\OneDrive\\Documents\\SYS6018\\competitions\\train.csv")
+test = read.csv("C:\\Users\\mkw5c\\OneDrive\\Documents\\SYS6018\\competitions\\test.csv")
 
 library('dplyr') # data manipulation
 library('readr') # input/output
@@ -10,6 +10,7 @@ library('tidyr') # data wrangling
 library('stringr') # string manipulation
 library('forcats') # factor manipulation
 library('rlang') # data manipulation
+library(randomForest)
 # -----Data Exploration------- #
 summary(train)
 summary(test)
@@ -45,13 +46,18 @@ apply(train_sample,2,unique)
 
 # --------- Linear Model --------# 
 # Linear model (free to use any packaged implementations). Use only the supplied training data.
-fit = glm(target~.-ps_car_,family=binomial(link='logit'), data = train_sample)
+# Linear model (free to use any packaged implementations). Use only the supplied training data.
+training<- sample(595212, 10000, replace = FALSE)
+train.train = train[training, ]
+train.test = train[-training, ]
+
+fit = glm(target~., data = train_sample)
 summary(fit)
 anova(fit)
 
 # stepwise model selection 
-start<-glm(target ~1,data= train_sample)
-end<-glm(target~.,data= train_sample)
+start<-glm(target ~1,family = binomial(link = "logit"), data= train.train)
+end<-glm(target~., binomial(link = "logit"), data= train.train)
 result.s<-step(start, scope=list(upper=end), direction="both",trace=FALSE) 
 summary(result.s)
 anova(result.s)
@@ -59,10 +65,12 @@ anova(result.s)
 
 
 #see how result.s performs on the full dataset
-driver.lm<- glm(target ~ ps_ind_05_cat + ps_ind_17_bin + ps_reg_02 + 
-                  ps_calc_20_bin + ps_car_01_cat + ps_car_08_cat + ps_ind_01 + 
-                  ps_reg_03 + ps_ind_04_cat + ps_calc_03 + ps_ind_12_bin + 
-                  ps_calc_06, data = train)
+driver.lm<- glm(target ~ ps_reg_03 + ps_car_13 + ps_calc_08 + ps_ind_15 + 
+                  ps_car_11 +  ps_calc_09 + ps_ind_06_bin, family = binomial(link = "logit"), 
+                data = train)
+pred_probs<- predict(driver.lm, newdata = test, type = "response")
+
+normalized.gini.index(ground.truth = train$target, predicted.probabilities = pred_probs)
 
 
 cv_error<- cv.glm(train, driver.lm, K = 5)
@@ -117,21 +125,31 @@ tr <- sample(1:nrow(train_sample), nrow(train_sample) / 2)
 train_sample.train <- train_sample[tr, ]
 train_sample.test <- train_sample[-tr, ]
 
-rf.train_sample <- randomForest(as.factor(target) ~.-ps_car_11_cat, data = train_sample.train, mtry = 30, ntree = 500, importance = TRUE)
+rf.train_sample <- randomForest(as.factor(target) ~ ps_reg_03 + ps_car_13 + ps_calc_08 + ps_ind_15 + 
+                                  ps_car_11 +  ps_calc_09 + ps_ind_06_bin, data = train_sample, mtry = 6, ntree = 500, importance = TRUE)
+
 rf.train_sample # OOB estimate of error rate is 4% 
 
-rf.train_sample <- randomForest(as.factor(target) ~.-ps_car_11_cat, data = train_sample.train, mtry = 6, ntree = 500, importance = TRUE)
+rf.train_sample <- randomForest(as.factor(target) ~.-ps_car_11_cat, data = train_sample, mtry = 6, ntree = 500, importance = TRUE)
 rf.train_sample # 4% 
 
-yhat.rf <- predict(rf.train_sample, newdata = train_sample.train)
-yhat.rf
-table(yhat.rf,train_sample.test$target)
-(1442+0)/1500
+yhat.rf.train<- predict(rf.train_sample, newdata = train, type = "prob")
+normalized.gini.index(ground.truth = train$target, predicted.probabilities = yhat.rf.train)
+
+test_predictions_rf <- predict(rf.train_sample, newdata = test, type = "prob")
+test_predictions_rf[,2]
+test_sub<- cbind(test$id, test_predictions_rf[,2])
+mode(test$id)
+write.table(test_sub, file = "safe_driver_rf.csv", sep = ",", row.names = F, col.names = c("id", "target"))
+
+yhat.rf<- predict(rf.train_sample, newdata = train, type = "response")
+table(yhat.rf, train$target)
+(573383+121)/595212
 # correction rate: 0.9613333
 
 yhat.rf2 <- predict(rf.train_sample, newdata = train_sample.test)
 yhat.rf2<- as.numeric(yhat.rf2)
-normalized.gini.index(ground.truth = train_sample.test$target, predicted.probabilities = yhat.rf2)
+normalized.gini.index(ground.truth = train_sample.test$target, predicted.probabilities = yhat.rf)
 
 importance(rf.train_sample)
 
