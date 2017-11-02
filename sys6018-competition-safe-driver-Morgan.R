@@ -40,8 +40,6 @@ str(test)
 
 train_sample = train[sample(nrow(train), 3000), ]
 
-
-
 apply(train_sample,2,unique)
 
 # --------- Linear Model --------# 
@@ -51,7 +49,8 @@ training<- sample(595212, 10000, replace = FALSE)
 train.train = train[training, ]
 train.test = train[-training, ]
 
-fit = glm(target~., data = train_sample)
+
+fit = glm(target~., data = train_sample, family = binomial(link = logit))
 summary(fit)
 anova(fit)
 
@@ -62,7 +61,7 @@ result.s<-step(start, scope=list(upper=end), direction="both",trace=FALSE)
 summary(result.s)
 anova(result.s)
 
-
+plot(target~ps_reg_03, data = train)
 
 #see how result.s performs on the full dataset
 driver.lm<- glm(target ~ ps_reg_03 + ps_car_13 + ps_calc_08 + ps_ind_15 + 
@@ -78,44 +77,8 @@ cv_error$delta
 
 ##training error = 3.4%
 
-###Gini Index
-unnormalized.gini.index = function(ground.truth, predicted.probabilities) {
-  
-  if (length(ground.truth) !=  length(predicted.probabilities))
-  {
-    stop("Actual and Predicted need to be equal lengths!")
-  }
-
-  # arrange data into table with columns of index, predicted values, and actual values
-  gini.table = data.frame(index = c(1:length(ground.truth)), predicted.probabilities, ground.truth)
-  
-  # sort rows in decreasing order of the predicted values, breaking ties according to the index
-  gini.table = gini.table[order(-gini.table$predicted.probabilities, gini.table$index), ]
-  
-  # get the per-row increment for positives accumulated by the model 
-  num.ground.truth.positivies = sum(gini.table$ground.truth)
-  model.percentage.positives.accumulated = gini.table$ground.truth / num.ground.truth.positivies
-  
-  # get the per-row increment for positives accumulated by a random guess
-  random.guess.percentage.positives.accumulated = 1 / nrow(gini.table)
-  
-  # calculate gini index
-  gini.sum = cumsum(model.percentage.positives.accumulated - random.guess.percentage.positives.accumulated)
-  gini.index = sum(gini.sum) / nrow(gini.table) 
-  return(gini.index) }
-
-unnormalized.gini.index(ground.truth = train$target, predicted.probabilities = fitted(driver.lm))
-
-##unnormalized gini index = 0.098
-
-normalized.gini.index = function(ground.truth, predicted.probabilities) {
-  
-  model.gini.index = unnormalized.gini.index(ground.truth, predicted.probabilities)
-  optimal.gini.index = unnormalized.gini.index(ground.truth, ground.truth)
-  return(model.gini.index / optimal.gini.index)}
-
 normalized.gini.index(ground.truth = train$target, predicted.probabilities = fitted(driver.lm))
- 
+
 ##Normalized Gini Index = 0.203
 
 # ----------Random Forest-----------# 
@@ -152,4 +115,42 @@ yhat.rf2<- as.numeric(yhat.rf2)
 normalized.gini.index(ground.truth = train_sample.test$target, predicted.probabilities = yhat.rf)
 
 importance(rf.train_sample)
+
+
+###Gini Index
+unnormalized.gini.index = function(ground.truth, predicted.probabilities) {
+  
+  if (length(ground.truth) !=  length(predicted.probabilities))
+  {
+    stop("Actual and Predicted need to be equal lengths!")
+  }
+  
+  # arrange data into table with columns of index, predicted values, and actual values
+  gini.table = data.frame(index = c(1:length(ground.truth)), predicted.probabilities, ground.truth)
+  
+  # sort rows in decreasing order of the predicted values, breaking ties according to the index
+  gini.table = gini.table[order(-gini.table$predicted.probabilities, gini.table$index), ]
+  
+  # get the per-row increment for positives accumulated by the model 
+  num.ground.truth.positivies = sum(gini.table$ground.truth)
+  model.percentage.positives.accumulated = gini.table$ground.truth / num.ground.truth.positivies
+  
+  # get the per-row increment for positives accumulated by a random guess
+  random.guess.percentage.positives.accumulated = 1 / nrow(gini.table)
+  
+  # calculate gini index
+  gini.sum = cumsum(model.percentage.positives.accumulated - random.guess.percentage.positives.accumulated)
+  gini.index = sum(gini.sum) / nrow(gini.table) 
+  return(gini.index) }
+
+unnormalized.gini.index(ground.truth = train$target, predicted.probabilities = fitted(driver.lm))
+
+##unnormalized gini index = 0.098
+
+normalized.gini.index = function(ground.truth, predicted.probabilities) {
+  
+  model.gini.index = unnormalized.gini.index(ground.truth, predicted.probabilities)
+  optimal.gini.index = unnormalized.gini.index(ground.truth, ground.truth)
+  return(model.gini.index / optimal.gini.index)}
+
 
