@@ -46,14 +46,11 @@ str(test)
 
 
 # because variables have different levels in train and test data 
-train$ps_ind_05_cat<- NULL
-test$ps_ind_05_cat<-NULL
 train$ps_car_05_cat<-NULL
 test$ps_car_05_cat<-NULL
 train$ps_ind_02_cat<-NULL
 test$ps_ind_02_cat<-NULL
-train$ps_car_03_cat<- NULL
-test$ps_car_03_cat<- NULL
+
 
 common <- intersect(names(train[,grep("cat", names(train))]), names(test[,grep("cat", names(test))])) 
 for (p in common) { 
