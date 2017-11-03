@@ -166,6 +166,11 @@ table(yhat.rf,train_sample.test$target)
 # correction rate:  0.9656
 importance(rf.train_sample)
 
+
+yhat.rf.train<- predict(rf.train_sample, newdata = train, type = "prob")
+normalized.gini.index(ground.truth = train$target, predicted.probabilities = yhat.rf.train)
+
+
 pred <-predict(rf.train_sample, newdata = test, type = 'prob')
 sum(is.na(pred))
 table = data.frame(test$id,pred[,2])
